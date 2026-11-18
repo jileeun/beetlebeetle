@@ -3711,6 +3711,26 @@ function crPose(cr) {
   else if (!cr.face) cr.face = cr.x <= HOLE.x ? 1 : -1;
   return { vertical, sv, face: cr.face, side: !vertical || sv > 0 };
 }
+// 일꾼 쇠똥구리의 지금 모습: 어떤 그림을 어느 쪽으로, 공(cr.x, cr.y)에서 얼마나 비켜 그리는지
+//  key 가 바뀌면 drawPlay 에서 TURN_T 동안 돌아서는 동작을 보여 줌
+const TURN_T = 0.18;   // 돌아서는 데 걸리는 시간(초, 1배속 기준)
+function carrierLook(cr, pose, r, BP, fr) {
+  const { sv, face } = pose, flip = face < 0, top = !pose.side;
+  let base, dir = 0, dx = 0, dy = 0;
+  if (cr.state === 'go') {
+    if (top) { base = 'beetle'; dir = sv < 0 ? 0 : 2; } else base = 'beetleWalk';
+  } else if (top) {
+    base = 'beetle'; dir = sv < 0 ? 2 : 0;
+    const sp = getSprite(base + '0', cr.color, dir, BP);
+    dy = -sv * (r + sp.lh / 2 - r * 0.5);   // 몸이 공 지름의 약 1/4을 가림
+  } else {
+    base = 'beetlePush';
+    const sp = getSprite(base + '0', cr.color, 0, BP, flip);
+    dx = -face * (r * 0.85 + sp.lw / 2 - 1); dy = r - sp.lh / 2;
+  }
+  const fl = base === 'beetle' ? false : flip;
+  return { key: cr.state[0] + base + dir + fl, base, name: base + fr, dir, flip: fl, dx, dy };
+}
 function laneOffset(cr, BP) {
   const ux = Math.cos(cr.ang), uy = Math.sin(cr.ang), vertical = Math.abs(uy) > Math.abs(ux);
   const pose = crPose(cr);
@@ -3923,34 +3943,51 @@ function drawPlay() {
     }
     cr.lx = lx; cr.ly = ly; cr.lt = time;
     cr.x = view.x + lx; cr.y = view.y + ly;
+    // 돌아서기: 좌↔우, 옆모습↔위 모습, 음식을 집어 공 뒤로 돌아갈 때 한 번에 뒤집히지 않게
+    //  모습이 바뀌면 TURN_T 동안 앞 절반은 예전 모습을 납작하게 접고, 뒤 절반은 새 모습을 펴면서
+    //  몸 위치도 예전 자리 → 새 자리로 미끄러지듯 옮김 (그리기만 바뀜)
+    const L = carrierLook(cr, pose, r, BP, fr);
+    let tr = cr._tr, from = null, p = 1;
+    if (cr._lk !== undefined && cr._lk !== L.key) {
+      const p0 = tr ? (time - tr.t0) / tr.d : 1;
+      tr = cr._tr = { from: tr && p0 < 0.5 ? tr.from : cr._lprev, t0: time, d: Math.max(0.07, TURN_T / speed),
+                      ox: cr._bdx, oy: cr._bdy };
+    }
+    cr._lk = L.key; cr._lprev = L;
+    if (tr) {
+      p = (time - tr.t0) / tr.d;
+      if (p >= 1 || p < 0) { cr._tr = tr = null; p = 1; } else from = tr.from;
+    }
+    const e = p * p * (3 - 2 * p);
+    const bdx = tr ? tr.ox + (L.dx - tr.ox) * e : L.dx, bdy = tr ? tr.oy + (L.dy - tr.oy) * e : L.dy;
+    cr._bdx = bdx; cr._bdy = bdy;
+    const show = from && p < 0.5 ? { ...from, name: from.base + fr } : L;
+    const squash = Math.max(0.12, Math.abs(Math.cos(p * PI)));
+    const yAxis = from && from.base === 'beetle' && L.base === 'beetle';   // 위 모습끼리(위↔아래)는 세로로 접음
+    const bx = cr.x + bdx, by = cr.y + bdy;
+    const drawBeetle = () => {
+      if (!from) { drawSprite(show.name, cr.color, show.dir, BP, bx, by, 1, show.flip); return; }
+      const s2 = getSprite(show.name, cr.color, show.dir, BP, show.flip);
+      ctx.save(); ctx.translate(Math.round(bx), Math.round(by)); ctx.scale(yAxis ? 1 : squash, yAxis ? squash : 1);
+      ctx.drawImage(s2, -s2.lw / 2, -s2.lh / 2, s2.lw, s2.lh); ctx.restore();
+    };
+    const sp = getSprite(L.name, cr.color, L.dir, BP, L.flip);
     ctx.fillStyle = 'rgba(40,25,10,.25)';
     if (cr.state === 'go') {
-      if (vertical) {
-        beetleShadow(cr.x, cr.y, getSprite('beetle' + fr, cr.color, sv < 0 ? 0 : 2, BP));
-        drawSprite('beetle' + fr, cr.color, sv < 0 ? 0 : 2, BP, cr.x, cr.y);
-      } else {
-        const sp = getSprite('beetleWalk' + fr, cr.color, 0, BP, flip);
-        ctx.beginPath(); ctx.ellipse(cr.x, cr.y + sp.lh / 2, sp.lw * 0.45, 1.5, 0, 0, PI * 2); ctx.fill();
-        drawSprite('beetleWalk' + fr, cr.color, 0, BP, cr.x, cr.y, 1, flip);
-      }
+      if (L.base === 'beetle') beetleShadow(bx, by, sp);
+      else { ctx.beginPath(); ctx.ellipse(bx, by + sp.lh / 2, sp.lw * 0.45, 1.5, 0, 0, PI * 2); ctx.fill(); }
+      drawBeetle();
     } else {
       const turn = (vertical ? sv : face) * cr.roll / r;
-      if (vertical) {
+      if (L.base === 'beetle') {
         // 위아래로 굴릴 때: 공을 먼저 그리고 쇠똥구리를 위에 겹쳐서, 몸이 공 가장자리를 살짝 가리게
-        const sp = getSprite('beetle' + fr, cr.color, sv < 0 ? 2 : 0, BP);
-        ctx.fillStyle = 'rgba(40,25,10,.25)';
         ctx.beginPath(); ctx.ellipse(cr.x, cr.y + r * 0.85, r, 1.5, 0, 0, PI * 2); ctx.fill();
         drawFoodBall(cr.x, cr.y, r, cr.color, turn);
-        const overlap = r * 0.5;   // 공 지름의 약 1/4을 몸이 가림
-        const by = cr.y - sv * (r + sp.lh / 2 - overlap);
-        beetleShadow(cr.x, by, sp);
-        drawSprite('beetle' + fr, cr.color, sv < 0 ? 2 : 0, BP, cr.x, by);
+        beetleShadow(bx, by, sp);
+        drawBeetle();
       } else {
-        const ground = cr.y + r;
-        const sp = getSprite('beetlePush' + fr, cr.color, 0, BP, flip);
-        const bx = cr.x - face * (r * 0.85 + sp.lw / 2 - 1);
-        ctx.beginPath(); ctx.ellipse(cr.x - face * sp.lw * 0.5, ground, r + sp.lw * 0.6, 1.5, 0, 0, PI * 2); ctx.fill();
-        drawSprite('beetlePush' + fr, cr.color, 0, BP, bx, ground - sp.lh / 2, 1, flip);
+        ctx.beginPath(); ctx.ellipse(cr.x - face * sp.lw * 0.5, cr.y + r, r + sp.lw * 0.6, 1.5, 0, 0, PI * 2); ctx.fill();
+        drawBeetle();
         drawFoodBall(cr.x, cr.y, r, cr.color, turn);
       }
       if (cr.item && Math.floor(time * 8) % 2) pxStar(cr.x + r, cr.y - r, 1, '#fff6a0');   // 아이템 든 음식은 반짝
