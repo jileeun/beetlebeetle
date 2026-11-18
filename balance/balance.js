@@ -73,12 +73,11 @@ window.BALANCE = {
   //   ice       : 얼음 음식 비율 (전체 음식 대비)
   //   giftAt    : 🎁을 숨길 위치 (먹히는 순서의 % 지점), 개수만큼
   gimmickRules: [
-    //  13~20(3장 열쇠)은 stages 행에서 직접 정함 — 아래 규칙은 21번 이후(아직 예전 방식)에만 적용
-    { when: 'n > 20 && n % 3 === 0 && n % 10 !== 1', set: { ice: 0.04 } },           // 보통에도 가끔
-    { when: 'n === 22', set: { lockCols: 1, keyAt: [0.2] } },                        // ⛓ 첫 등장
-    { when: 'n > 22 && n % 4 === 2', set: { lockCols: 1 } },
-    { when: 'n === 25', set: { lockSlots: 1, lockCols: 1, keyAt: [0.2, 0.4] } },     // ⚠ 자물쇠 2개
-    { when: 'n === 28', set: { giftAt: [0.5] } },
+    //  13~28(3장 열쇠, 4장 얼음)은 stages 행에서 직접 정함 — 아래 규칙은 29번 이후(아직 예전 방식)에만 적용
+    //  (2026-11-18 4장 적용: ⛓ 첫 등장을 22 → 29(5장 첫 판)로 옮기고, 23~28 에 걸리던 예전 규칙을 뺌)
+    { when: 'n > 28 && n % 3 === 0 && n % 10 !== 1', set: { ice: 0.04 } },           // 보통에도 가끔
+    { when: 'n === 29', set: { lockCols: 1, keyAt: [0.2] } },                        // ⛓ 첫 등장 (5장)
+    { when: 'n > 29 && n % 4 === 2', set: { lockCols: 1 } },
     { when: 'n === 30', set: { lockSlots: 1, lockCols: 1, ice: 0.06, keyAt: [0.2, 0.45], giftAt: [0.6] } },  // 🔥
     { when: 'n === 35', set: { lockCols: 1, ice: 0.1, keyAt: [0.3] } },              // ⚠
     { when: 'n === 38', set: { giftAt: [0.5] } },
@@ -229,11 +228,59 @@ window.BALANCE = {
           title: '⚠ 3장 시험', intro: '열쇠 3개! 칸을 하나씩 넓혀 가요', reward: { key: 1 },
           hint: '칸이 좁을 땐 숫자가 큰 쇠똥구리를 넣지 말아요. 열쇠를 하나씩 열면 점점 쉬워져요.',
           qa: { engine: { randomFail: [0.7, 1], greedyFail: [0.2, 0.75], fullFail: [0, 0], keyFail: [0, 0] } } },
-    21: { seed: 1 },
-    22: { seed: 12, jitter: 0.12, link: 0.25 },         // ⛓ 첫 등장: 순서 뒤섞기·사슬 완화
-    23: { seed: 8 },  24: { seed: 1 },
-    25: { seed: 6 },                                    // ⚠ 🔑×2 ⛓
-    27: { seed: 1 },  28: { seed: 14 }, 29: { seed: 1 },
+    // ===== 4장: 얼음 🧊 (21~28) — "길목 얼음, 어느 색으로 녹일까" =====
+    //  2026-11-18: 그림을 겨울·얼음 그림 8개로 새로 그림 (index.html REPLACE_ARTS 20~27) → seed 를 새 그림 기준으로 잼
+    //  얼음을 무작위로 흩뿌리지 않고 **길목**(그 칸이 막히면 안쪽까지 먹어야 할 음식이 크게 늘어나는 칸)에만 둠 = gen.iceGate (개수)
+    //   → 얼음 바로 옆 음식을 먹어야 녹으므로 "어느 색을 먼저 넣어 길목을 녹일지"가 고민거리
+    //  흐름: 21 얼음 소개 → 22 길목 얼음 → 23 쉬어 가기 🎁 → 24 길목 여러 개 + 숫자 함정 → 25 얼음 뒤의 열쇠(3장과 조합)
+    //        → 26 쉬어 가기 🎁 + 사슬 → 27 칸 3개로 연습 → 28 시험 (보상 💣)
+    //  qa.engine 전략: ice = full + "얼음 바로 옆의 지금 닿는 음식 색"을 먼저 (+ 열쇠가 있으면 key 요령)
+    //  ※ ants·jitterSpan 을 행에 직접 적음 (tier 를 바꿔도 판이 달라지지 않게)
+    21: { seed: 1, tier: 'normal', slots: 5, link: 0, jitter: 0.05, jitterSpan: 1, ants: 18, gen: { iceGate: 2 },
+          lesson: '얼음 소개: 길목 얼음 2개. 옆 음식을 먹으면 깨진다는 것만 보여 주는 막히지 않는 판',
+          hint: '얼음 바로 옆 음식을 먹으면 얼음이 깨져요. 얼음 옆 색 쇠똥구리를 보내요.',
+          qa: { engine: { randomFail: [0, 0.3], greedyFail: [0, 0], fullFail: [0, 0], iceFail: [0, 0] } } },
+    22: { seed: 3, tier: 'normal', slots: 4, link: 0, jitter: 0.05, jitterSpan: 1, ants: 18, gen: { iceGate: 3 },
+          lesson: '길목 얼음: 얼음이 안쪽 길을 막음 → 얼음 옆 색을 먼저 넣어 길을 엶',
+          title: '💡 길목 얼음', intro: '얼음이 안쪽으로 가는 길을 막고 있어요',
+          hint: '얼음이 녹아야 안쪽 음식이 열려요. 얼음 바로 옆 음식 색 쇠똥구리를 먼저 넣어요.',
+          qa: { engine: { randomFail: [0.1, 0.65], greedyFail: [0, 0.25], fullFail: [0, 0], iceFail: [0, 0] } } },
+    23: { seed: 1, tier: 'easy', slots: 5, link: 0, jitter: 0.05, jitterSpan: 1, ants: 19, gen: { iceGate: 2 },
+          gimmicks: { giftAt: [0.5] },
+          lesson: '쉬어 가기: 칸 5개로 넉넉하게, 얼음을 녹이며 🎁 선물까지',
+          title: '🎁 얼음 속 선물', intro: '얼음을 녹이고 선물까지 가 봐요',
+          hint: '얼음 옆 음식을 먼저 먹으면 길이 열려요.',
+          qa: { engine: { randomFail: [0, 0.35], greedyFail: [0, 0.1], fullFail: [0, 0], iceFail: [0, 0] } } },
+    24: { seed: 2, tier: 'normal', slots: 4, link: 0, jitter: 0.05, jitterSpan: 1, ants: 19,
+          gen: { iceGate: 4, busy: 3, big: 3, trap: 0.8, trapSpan: 2 },
+          lesson: '길목 여러 개 + 숫자 함정(1장): 숫자가 큰 쇠똥구리는 얼음이 녹아 길이 열린 뒤에',
+          title: '💡 얼음이 여러 개!', intro: '어느 얼음부터 녹일지 골라요',
+          hint: '숫자가 큰 쇠똥구리는 얼음이 녹은 뒤에 넣어요. 얼음 옆 색부터!',
+          qa: { engine: { randomFail: [0.1, 0.9], greedyFail: [0, 0.5], fullFail: [0, 0], iceFail: [0, 0] } } },
+    25: { seed: 1, tier: 'normal', slots: 5, link: 0, jitter: 0.05, jitterSpan: 1, ants: 19,
+          gimmicks: { lockSlots: 1, keyAt: [0.4] }, gen: { iceGate: 3, keyDeep: 0.5 },
+          lesson: '얼음 뒤의 열쇠(3장과 조합): 🔑이 길목 얼음 너머에 → 얼음을 녹여 열쇠까지 길을 냄',
+          title: '💡 얼음 뒤의 열쇠', intro: '열쇠로 가는 길을 얼음이 막고 있어요',
+          hint: '열쇠 쪽 얼음 옆 음식을 먼저 먹어요. 얼음이 깨지면 열쇠까지 길이 나요.',
+          qa: { engine: { randomFail: [0, 0.75], greedyFail: [0, 0.25], fullFail: [0, 0], iceFail: [0, 0] } } },
+    26: { seed: 3, tier: 'easy', slots: 5, link: 0.3, jitter: 0.05, jitterSpan: 1, ants: 19, gen: { iceGate: 2 },
+          gimmicks: { giftAt: [0.5] },
+          lesson: '쉬어 가기: 사슬(2장)과 얼음이 함께 있지만 칸 5개로 여유 있게 + 🎁',
+          hint: '사슬은 빈 칸이 2개 필요해요. 얼음 옆 색부터 넣으면 길이 넓어져요.',
+          qa: { engine: { randomFail: [0, 0.35], greedyFail: [0, 0.1], fullFail: [0, 0], iceFail: [0, 0] } } },
+    27: { seed: 1, tier: 'normal', slots: 3, link: 0, jitter: 0.05, jitterSpan: 1, ants: 18,
+          gen: { iceGate: 3, busy: 2, big: 3, trap: 0.6, trapSpan: 2 },
+          lesson: '칸 3개로 연습(시험 전): 칸이 좁아 얼음을 늦게 녹이면 막힘',
+          title: '💡 칸이 3개!', intro: '좁을수록 얼음부터 녹여요',
+          hint: '칸이 3개뿐이에요. 얼음 옆 색과 바로 일을 끝낼 쇠똥구리만 넣어요.',
+          qa: { engine: { randomFail: [0.2, 1], greedyFail: [0, 0.75], fullFail: [0, 0], iceFail: [0, 0] } } },
+    28: { seed: 3, tier: 'hard', slots: 4, link: 0, jitter: 0.05, jitterSpan: 1, ants: 22,
+          gen: { iceGate: 5, busy: 3, big: 3, trap: 0.8, trapSpan: 3 },
+          lesson: '4장 시험: 길목 얼음 5개 + 숫자 보기(1장), 칸 4개',
+          title: '⚠ 4장 시험', intro: '얼음을 녹일 순서를 생각해요!', reward: { bomb: 1 },
+          hint: '얼음 옆 색을 먼저, 숫자가 큰 쇠똥구리는 길이 열린 뒤에. 💣 폭탄은 얼음째 날려요.',
+          qa: { engine: { randomFail: [0.4, 1], greedyFail: [0.1, 1], fullFail: [0, 0], iceFail: [0, 0] } } },
+    29: { seed: 1, jitter: 0.12, link: 0.25 },         // ⛓ 첫 등장 (22 → 29, 2026-11-18): 순서 뒤섞기·사슬 완화 — 엔진 random·greedy 0%
     30: { seed: 2 },                                    // 🔥 🔑×2 ⛓ 🧊 🎁
     31: { seed: 3 },  33: { seed: 1 },
     35: { seed: 12 },                                   // ⚠ ⛓ 🧊

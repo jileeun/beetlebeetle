@@ -107,9 +107,13 @@
       const ux = Math.cos(cr.ang), uy = Math.sin(cr.ang), vertical = Math.abs(uy) > Math.abs(ux);
       const onTop = Math.abs(cr.y - T.y0) < 1, onL = Math.abs(cr.x - T.x0) < 1, onR = Math.abs(cr.x - T.x1) < 1;
       if (!(onTop || onL || onR)) continue;
+      // drawPlay 와 같게: 꺾는 곳은 다듬은 길(crView)의 위치·방향으로 그림
+      const view = typeof crView === 'function' ? crView(cr) : { x: cr.x, y: cr.y, ang: cr.ang }, realAng = cr.ang;
+      cr.ang = view.ang;
       const [lx, ly] = laneOffset(cr, BP);   // 게임 그리기와 같은 함수
       const sp = getSprite(crPose(cr).side ? 'beetleWalk0' : 'beetle0', cr.color, 0, BP);   // 아래로 갈 때도 옆모습 (drawPlay 와 같은 자세)
-      const x = cr.x + lx, y = cr.y + ly;
+      cr.ang = realAng;
+      const x = view.x + lx, y = view.y + ly;
       if (x - sp.lw / 2 < inner.x0 - 0.5 || x + sp.lw / 2 > inner.x1 + 0.5 || y - sp.lh / 2 < inner.y0 - 0.5) hits++;
     }
     return hits;
@@ -234,6 +238,7 @@
   //  stages[n].qa.engine = { randomFail, greedyFail, fullFail } 구간을 실제 엔진 자동 플레이로 확인
   //  정책  random: 빈 칸이 생기면 곧 아무거나 / greedy: 닿는 색이면 바로 / full: 숫자까지 보고, 모자라면 기다림 (1장 전부)
   //        chain: full + 사슬을 위해 칸 2개 비워 두기 + 사슬 짝을 가린 줄 먼저 꺼내기 (2장 전부)
+  //        key: full + 🔑까지 길을 내는 색 먼저 (3장) / ice: full + 얼음 옆 색 먼저 (+ 열쇠가 있으면 key 요령) (4장)
   function lessonRun(i, policy, seed) {
     const rng = mulberry32(seed), keep = { speed, mode };
     mode = 'solo'; speed = 9;
@@ -329,7 +334,27 @@
         return;
       }
       const full = legal.filter(o => sc(o) >= 1);
-      if (policy === 'key') {
+      if (policy === 'ice') {
+        // 4장: 얼음을 아는 플레이어 = full + "얼음 바로 옆의, 지금 닿는 음식 색"을 먼저 골라 길목 얼음을 녹임
+        //  ① 숫자를 다 채울 수 있는 쇠똥구리 중 얼음 옆 색이 있으면 그것부터
+        //  ② 없으면, 얼음 옆 색이고 닿는 음식이 있으면 숫자가 모자라도 넣음 (빈 칸이 2개 이상일 때)
+        //  얼음이 다 녹았으면 3장(key) 요령으로 넘어감
+        const ic = new Set();
+        for (const k of g.ice) {
+          const r = Math.floor(k / g.C), c = k % g.C;
+          for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nr = r + dr, nc = c + dc, n = nr * g.C + nc;
+            if (nr < 0 || nc < 0 || nr >= g.R || nc >= g.C || g.ice.has(n) || !g.grid[nr][nc] || g.reserved[nr][nc]) continue;
+            if (g.reach.acc.has(n)) ic.add(g.grid[nr][nc]);
+          }
+        }
+        const onIce = o => o.ms.some(m => ic.has(m.color));
+        const fi = full.filter(onIce);
+        if (fi.length) { tryPick(any(fi).c, 0); return; }
+        const part = legal.filter(o => onIce(o) && o.ms.every(m => hasTarget(m.color)));
+        if (part.length && free >= 2) { tryPick(any(part).c, 0); return; }
+      }
+      if (policy === 'key' || (policy === 'ice' && g.keys.size)) {
         // 3장: 열쇠를 아는 플레이어 = full + "🔑까지 가는 길을 막고 있는 색"을 먼저 고름
         //  ① 숫자를 다 채울 수 있는 쇠똥구리 중 열쇠 길 색이 있으면 그것부터
         //  ② 없으면, 열쇠 길 색이고 닿는 음식이 있으면 숫자가 모자라도 넣음 (빈 칸이 2개 이상일 때 — 길을 파서 칸을 늘리는 투자)

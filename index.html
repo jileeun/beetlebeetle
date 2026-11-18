@@ -846,7 +846,8 @@ function addInnerLines(g) {
 // 한 칸의 문자열 = 함께 지울 색 묶음. 예: 'RW'는 빨강·흰 체크무늬 식탁보
 const STRIP = {
   '하트 풍선': ['L', 'G'], '과일 바구니': ['L', 'RW'], '열대어': ['BC', 'S'], '줄무늬 고양이': ['PK'],
-  '사과나무 언덕': ['L', 'G', 'E', 'S'], '딸기 소풍': ['WK'], '목도리 펭귄': ['L', 'BC'], '바닷속 문어': ['BC', 'S'],
+  '사과나무 언덕': ['L', 'G', 'E', 'S'], '딸기 소풍': ['WK'], '목도리 펭귄': ['L', 'BC'],
+  '눈사람': ['B'], '북극곰': ['B', 'C'], '이글루': ['M'], '눈꽃': ['M'], '빙수': ['K'], '썰매': ['L'], '눈 덮인 오두막': ['M'], '얼음 성': ['P'],
   '잎 위의 무당벌레': ['Y'], '선물과 트리': ['M', 'S'], '보석 왕관': ['P'],
   '별이 빛나는 밤': ['M', 'B', 'L'], '귀여운 소녀': ['L'], '큰 파도': ['S'], '꼬마 마녀': ['M'], '해바라기': ['L', 'O', 'N'],
   '소방관': ['L', 'W'], '진주 귀걸이 소녀': ['M'], '수련 연못': ['BC'], '꽃 화관 소녀': ['Y'], '붉은 산': ['B', 'L', 'W', 'E'],
@@ -1099,19 +1100,6 @@ const REPLACE_ARTS = {
     p.ell(135,246,22,8,'O'); p.ell(185,246,22,8,'O');
     p.ell(98,180,14,40,'D',0.3); p.ell(222,180,14,40,'D',-0.3);
   }},
-  24: { name:'바닷속 문어', w:32, h:30, draw(p) {
-    p.bg('B');
-    for (let y = 30; y < 230; y += 50) p.curve([[0,y],[80,y-8],[160,y+6],[240,y-6],[320,y+4]],'C',10);
-    p.rect(0,240,320,60,'S');
-    for (const x of [25,60,265,300]) p.curve([[x,300],[x-10,250],[x+10,205],[x-6,160]],'G',12);
-    p.poly([[230,270],[244,240],[258,270],[288,262],[262,282],[270,300],[244,288],[218,300],[226,282],[200,262]],'O');
-    p.circ(160,105,62,'P');
-    for (const [x,dir] of [[110,-1],[135,-0.4],[160,0],[185,0.4],[210,1]]) p.curve([[x,140],[x+dir*20,185],[x+dir*45,215],[x+dir*30,240]],'P',22);
-    p.ell(138,100,14,17,'W'); p.ell(182,100,14,17,'W'); p.circ(140,104,7,'D'); p.circ(184,104,7,'D');
-    p.ell(120,130,11,7,'K'); p.ell(200,130,11,7,'K');
-    p.arc(160,128,10,PI*0.15,PI*0.85,'D',4);
-    for (const [x,y,r] of [[60,60,9],[75,35,6],[255,50,8],[270,28,5],[240,170,7]]) p.circ(x,y,r,'W');
-  }},
   28: { name:'잎 위의 무당벌레', w:32, h:30, draw(p) {
     p.bg('Y');
     for (const [x,y,k] of [[40,40,'W'],[280,50,'K'],[40,250,'K'],[285,260,'W'],[160,280,'W']]) {
@@ -1152,6 +1140,125 @@ const REPLACE_ARTS = {
     for (const [x,y,k] of [[105,155,'G'],[160,130,'B'],[215,155,'K']]) p.circ(x,y,12,k);
   }},
 };
+// 4장 얼음(21~28) 그림 — 겨울·얼음 그림으로 새로 그림 (2026-11-18 "그림도 바꿔 가면서")
+//  그림이 바뀌면 판이 통째로 달라지므로 21~28 seed 는 이 그림 기준으로 다시 잼
+Object.assign(REPLACE_ARTS, {
+  20: { name:'눈사람', w:32, h:30, draw(p) {
+    p.bg('B');
+    for (const [x,y,r] of [[40,40,7],[90,90,5],[270,60,8],[230,120,5],[30,170,6],[295,190,5]]) p.circ(x,y,r,'W');
+    p.group('L', q => { q.ell(160,300,230,48); q.rect(0,268,320,40); });
+    p.circ(160,215,72,'W'); p.circ(160,118,50,'W');
+    p.line([[110,190],[55,150],[40,120]],'N',8); p.line([[55,150],[35,155]],'N',6);
+    p.line([[210,190],[265,150],[282,122]],'N',8); p.line([[265,150],[288,152]],'N',6);
+    p.rect(118,150,84,20,'R'); p.poly([[180,160],[205,160],[215,215],[190,215]],'R');
+    p.rect(122,30,76,46,'D'); p.rect(104,70,112,14,'D'); p.rect(122,56,76,12,'R');
+    p.circ(143,110,6,'D'); p.circ(177,110,6,'D');
+    p.poly([[160,118],[160,130],[205,126]],'O');
+    for (const y of [195,225,255]) p.circ(160,y,7,'D');
+  }},
+  21: { name:'북극곰', w:32, h:30, draw(p) {
+    p.bg('B');
+    p.circ(268,52,30,'Y');
+    p.rect(0,236,320,64,'C');
+    p.poly([[18,226],[302,222],[286,262],[34,266]],'L');
+    p.group('W', q => {
+      q.ell(185,170,100,58); q.circ(88,132,46);
+      q.circ(62,96,15); q.circ(112,92,15);
+      for (const x of [118,160,230,265]) q.rect(x-17,190,34,46);
+    });
+    p.circ(62,96,7,'K'); p.circ(112,92,7,'K');
+    p.circ(76,124,5,'D'); p.circ(104,122,5,'D');
+    p.ell(70,150,11,8,'D');
+    p.poly([[40,170],[18,152],[18,188]],'O'); p.ell(52,170,18,9,'O');
+  }},
+  22: { name:'이글루', w:32, h:30, draw(p) {
+    p.bg('M');
+    for (const [x,y] of [[30,30],[80,60],[140,25],[210,50],[300,35],[250,95],[20,110]]) p.circ(x,y,4,'Y');
+    p.circ(270,45,24,'Y'); p.circ(258,38,20,'M');
+    p.curve([[0,120],[80,95],[160,125],[240,95],[320,120]],'G',16);
+    p.curve([[0,150],[90,125],[170,150],[250,128],[320,150]],'P',12);
+    p.ell(150,240,115,100,'W');
+    for (const y of [175,205,235]) p.line([[50,y],[250,y]],'L',6);
+    for (const [x,y] of [[110,160],[170,160],[80,190],[140,190],[200,190],[110,220],[220,220]]) p.line([[x,y],[x,y+28]],'L',6);
+    p.ell(150,232,30,40,'D');
+    p.rect(0,240,320,60,'L',false);
+    p.ell(268,214,22,32,'D'); p.ell(268,222,14,24,'W'); p.poly([[262,192],[274,192],[268,202]],'O');
+    p.ell(258,248,10,5,'O'); p.ell(278,248,10,5,'O');
+  }},
+  23: { name:'눈꽃', w:32, h:30, draw(p) {
+    p.bg('M');
+    for (const [x,y,r] of [[30,30,5],[290,40,6],[40,270,6],[285,265,5],[160,20,4]]) p.circ(x,y,r,'Y');
+    const cx = 160, cy = 150;
+    for (let k = 0; k < 6; k++) {
+      const a = k * PI / 3, ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
+      p.line([[cx,cy],[cx+ux*125,cy+uy*125]],'W',18);
+      for (const [t,l] of [[55,32],[90,24]]) for (const sd of [-1,1])
+        p.line([[cx+ux*t,cy+uy*t],[cx+ux*(t+l*0.7)+vx*sd*l,cy+uy*(t+l*0.7)+vy*sd*l]],'L',12);
+      p.circ(cx+ux*126,cy+uy*126,13,'C');
+    }
+    p.circ(cx,cy,40,'B'); p.circ(cx,cy,22,'C'); p.circ(cx,cy,9,'W');
+  }},
+  24: { name:'빙수', w:32, h:30, draw(p) {
+    p.bg('K');
+    for (const [x,y] of [[30,40],[290,50],[40,150],[285,160]]) p.circ(x,y,8,'W');
+    p.poly([[50,190],[270,190],[230,270],[90,270]],'C');
+    p.rect(110,270,100,18,'C');
+    p.group('W', q => { q.ell(160,180,115,40); q.ell(160,135,90,62); q.circ(160,80,40); });
+    p.curve([[90,120],[130,100],[170,128],[220,104]],'R',16);
+    p.curve([[100,160],[150,150],[200,165],[235,150]],'R',12);
+    for (const [x,y] of [[120,175],[140,185],[180,182],[205,172]]) p.circ(x,y,9,'N');
+    p.poly([[150,40],[178,40],[184,70],[164,84],[144,70]],'R'); p.rect(156,30,16,12,'G');
+    p.circ(110,130,18,'G'); p.circ(110,130,8,'Y');
+    p.rect(190,105,30,30,'O'); p.rect(200,72,26,26,'O');
+    p.line([[245,80],[285,30]],'A',10); p.ell(240,88,16,10,'A',-0.9);
+  }},
+  25: { name:'썰매', w:32, h:30, draw(p) {
+    p.bg('L');
+    for (const [x,y] of [[30,30],[120,20],[200,45],[300,25],[260,90],[60,100]]) p.circ(x,y,6,'W');
+    for (const x of [30,290]) { p.poly([[x,60],[x-34,170],[x+34,170]],'E'); p.poly([[x,40],[x-20,100],[x+20,100]],'E'); p.rect(x-8,170,16,30,'N'); }
+    p.rect(0,235,320,65,'W',false);
+    p.line([[60,250],[250,250],[275,225]],'N',10);
+    for (const x of [90,215]) p.line([[x,232],[x,250]],'N',8);
+    p.poly([[60,175],[250,175],[262,232],[50,232]],'R');
+    p.poly([[230,175],[262,150],[272,160],[250,190]],'R');
+    p.rect(85,115,50,60,'G'); p.rect(107,115,8,60,'Y'); p.rect(85,140,50,8,'Y');
+    p.rect(140,95,60,80,'P'); p.rect(166,95,8,80,'W'); p.rect(140,128,60,8,'W');
+    p.rect(205,130,40,45,'Y'); p.rect(222,130,7,45,'R');
+    p.ell(170,90,16,8,'W'); p.ell(111,110,12,6,'Y');
+  }},
+  26: { name:'눈 덮인 오두막', w:32, h:30, draw(p) {
+    p.bg('M');
+    for (const [x,y] of [[20,20],[70,50],[150,15],[200,40],[290,20],[310,80]]) p.circ(x,y,4,'W');
+    p.circ(250,50,22,'Y');
+    for (const x of [35,285]) {
+      p.poly([[x,120],[x-40,230],[x+40,230]],'E');
+      p.poly([[x,120],[x-18,160],[x+18,160]],'W');
+      p.rect(x-8,230,16,22,'N');
+    }
+    p.rect(185,70,26,60,'A'); p.circ(200,58,12,'L'); p.circ(214,40,14,'L'); p.circ(232,22,12,'L');
+    p.rect(80,150,170,100,'N');
+    p.poly([[60,155],[165,80],[270,155]],'R');
+    p.poly([[55,150],[165,72],[275,150],[255,158],[165,98],[75,158]],'W');
+    p.rect(105,175,40,36,'Y'); p.rect(123,175,5,36,'N'); p.rect(105,191,40,5,'N');
+    p.rect(180,180,44,70,'E'); p.circ(214,216,4,'Y');
+    p.group('W', q => { q.rect(0,250,320,50); q.ell(160,252,180,16); });
+  }},
+  27: { name:'얼음 성', w:32, h:30, draw(p) {
+    p.bg('P');
+    for (const [x,y] of [[25,30],[90,15],[230,20],[300,40],[160,10],[15,110],[305,120]]) p.circ(x,y,4,'Y');
+    p.rect(0,255,320,45,'W',false);
+    p.rect(60,140,200,115,'L');
+    for (let x = 60; x < 260; x += 40) p.rect(x,124,22,18,'L');
+    for (const [x,w,h] of [[40,44,170],[236,44,170],[135,50,200]]) {
+      p.rect(x,255-h,w,h,'C');
+      p.poly([[x-8,255-h],[x+w/2,255-h-58],[x+w+8,255-h]],'B');
+      p.line([[x+w/2,255-h-58],[x+w/2,255-h-82]],'A',4); p.poly([[x+w/2,255-h-82],[x+w/2+22,255-h-74],[x+w/2,255-h-66]],'K');
+    }
+    for (const [x,y] of [[52,130],[248,130],[150,95]]) p.ell(x+12,y,8,12,'M');
+    p.ell(160,225,24,32,'M'); p.rect(136,225,48,30,'M');
+    for (const x of [90,215]) p.rect(x,170,18,24,'M');
+  }},
+});
 const STAGES = [
   ...PIXEL_ARTS.map(([name, art]) => ({ name, src: { type: 'pixel', art } })),
   ...PAINT_ARTS.map(def => ({ name: def.name, src: { type: 'paint', def } })),
@@ -1456,6 +1563,57 @@ function buildStage(idx) {
       if (nb(k).some(n => grid[Math.floor(n / C)][n % C] && !set.has(n))) set.add(k);
     }
     ice = [...set];
+  }
+  // 레슨용 gen.iceGate (4장): 🧊을 **길목**에만 둠 — 얼음 덩어리(벽)로 안쪽으로 가는 길을 막음.
+  //  그림이 꽉 찬 덩어리라 한 칸은 길목이 못 됨 → 같은 깊이 근처의 음식 iceSize 칸(기본 6)을 한 덩어리로 얼림.
+  //  녹은 얼음을 먹으면 그 옆 얼음도 깨지므로, 벽은 옆 음식을 먹은 쪽부터 차례로 녹음.
+  //  길목 점수 = 그 덩어리를 벽으로 쳤을 때 늘어나는 "파고들 깊이"(바깥에서 그 칸까지 먹어야 하는 음식 수)의 합 (칸마다 최대 8).
+  //  얕은 곳(깊이 1~3)에서 점수가 큰 덩어리부터, 서로 3칸 이상 떨어지게 iceGate 개 고름.
+  //  → "얼음 옆 어느 색을 먼저 넣어 길을 열지"가 고민거리. gen.iceGateMin: 점수 하한 (기본 30)
+  if (gen.iceGate) {
+    const N = R * C, size = gen.iceSize || 6, cost = k => grid[Math.floor(k / C)][k % C] ? 1 : 0;
+    const dig = blocked => {   // 0-1 BFS: 바깥에서 각 칸까지 먹어야 하는 음식 수 (blocked 칸은 못 지나감)
+      const d = new Array(N).fill(Infinity), dq = [];
+      for (let k = 0; k < N; k++) {
+        const r = Math.floor(k / C), c = k % C;
+        if ((r === 0 || c === 0 || r === R - 1 || c === C - 1) && !blocked.has(k)) { d[k] = cost(k); dq.push(k); }
+      }
+      dq.sort((a, b) => d[a] - d[b]);
+      for (let h = 0; h < dq.length; h++) {
+        const k = dq[h];
+        for (const n of nb(k)) {
+          if (blocked.has(n)) continue;
+          const v = d[k] + cost(n);
+          if (v < d[n]) { d[n] = v; if (cost(n)) dq.push(n); else dq.splice(h + 1, 0, n); }
+        }
+      }
+      return d;
+    };
+    const d0 = dig(new Set());
+    const blobOf = k0 => {   // k0 에서 같은 깊이 ±1 음식으로 번지는 덩어리 (가까운 칸부터)
+      const set = new Set([k0]), q = [k0], dk = d0[k0];
+      for (let h = 0; h < q.length && set.size < size; h++)
+        for (const n of nb(q[h])) {
+          if (set.size >= size) break;
+          if (!set.has(n) && cost(n) && Math.abs(d0[n] - dk) <= 1) { set.add(n); q.push(n); }
+        }
+      return set;
+    };
+    const cands = foodCells.filter(k => d0[k] >= 1 && d0[k] <= 3).map(k => {
+      const blob = blobOf(k), d1 = dig(blob);
+      let s = 0;
+      for (const f of foodCells) if (!blob.has(f)) s += Math.min(8, d1[f] - d0[f]);
+      return { blob, s };
+    }).filter(o => o.s >= (gen.iceGateMin || 30)).sort((a, b) => b.s - a.s);
+    const picked = [];
+    const far = blob => [...blob].every(k => picked.every(B => [...B].every(g => Math.abs(Math.floor(g / C) - Math.floor(k / C)) + Math.abs(g % C - k % C) >= 3)));
+    for (const o of cands) {
+      if (picked.length >= gen.iceGate) break;
+      // 녹을 수 있어야 함: 덩어리 밖에 이웃 음식이 있어야
+      if (far(o.blob) && [...o.blob].some(k => nb(k).some(n => cost(n) && !o.blob.has(n)))) picked.push(o.blob);
+    }
+    const gates = picked.flatMap(b => [...b]);
+    ice = [...gates, ...ice.filter(k => !gates.includes(k))];
   }
   // 1차: 열쇠 없이 돌려서 음식이 먹히는 순서를 얻고, 진행도 keyAt 지점의 음식에 🔑, gift 지점에 🎁을 숨김
   let base = run(ice, []);
@@ -2420,7 +2578,7 @@ function stageGimmickKeys(i) {
   if (STAGES[i] && (STAGES[i].link > 0 || (STAGES[i].gen && STAGES[i].gen.skew))) out.push('chain');   // 🔗 사슬 (2장)
   if (gm.lockSlots || gm.lockCols) out.push('key');
   if (gm.lockCols) out.push('colLock');
-  if (gm.ice) out.push('ice');
+  if (gm.ice || (STAGES[i] && STAGES[i].gen && STAGES[i].gen.iceGate)) out.push('ice');   // 🧊 (4장 길목 얼음 포함)
   if (gm.giftAt && gm.giftAt.length) out.push('gift');
   return out;
 }
@@ -2431,7 +2589,7 @@ function gimmickSummary(i) {
   const locks = (gm.lockSlots || 0) + (gm.lockCols ? 1 : 0);
   if (locks) parts.push(`🔑×${locks}`);
   if (gm.lockCols) parts.push('⛓ 잠긴 줄');
-  if (gm.ice) parts.push('🧊 얼음');
+  if (gm.ice || (STAGES[i].gen && STAGES[i].gen.iceGate)) parts.push('🧊 얼음');
   if (gm.giftAt && gm.giftAt.length) parts.push(`🎁×${gm.giftAt.length}`);
   return parts.length ? parts.join(' · ') + ' — 작전을 세워요!' : '';
 }
@@ -3475,8 +3633,79 @@ const FRAME_IN = { x0: PIC.x - 2, y0: PIC.y - 4, x1: PIC.x + PIC.w + 2 };
 //    쇠똥구리 몸이 액자 테두리 선에 닿지 않을 만큼 더 안쪽으로 (큰 그림·작은 그림 모두)
 // 일꾼 쇠똥구리의 자세: 옆으로 갈 때와 **아래로 갈 때**는 옆모습(걷기·공 굴리기), 위로 갈 때만 위에서 본 모습
 //  아래로 갈 때 바라보는 쪽은 마지막으로 옆으로 걷던 방향을 그대로 씀 (없으면 굴이 있는 가운데 쪽)
+// 꺾을 때 자연스럽게: 그리는 위치·방향만 다듬은 길을 따라 보여 줌
+//  실제 위치(cr.x, cr.y)·속도·길은 그대로라 엔진·QA·밸런스 결과는 바뀌지 않음
+//  다듬은 길 = ① 아주 짧은 지그재그(옆으로 몇 px 비켰다 다시 가는 곳)는 가운데로 펴고
+//              ② 모서리는 앞뒤 TURN_RAD 거리를 2차 베지어 곡선(모서리가 조절점)으로 깎음
+//  실제 길에서 간 거리의 비율만큼 다듬은 길을 따라가고, 방향은 다듬은 길의 접선
+const TURN_RAD = 14;   // 모서리를 깎는 최대 거리(px)
+const TURN_JOG = 7;    // 이보다 짧은 조각은 지그재그로 보고 폄(px)
+function smoothPath(pts) {
+  let q = pts.map(p => ({ x: p.x, y: p.y }));
+  // ① 짧은 조각 펴기 (양 끝점은 그대로)
+  for (let k = 1; k + 2 < q.length; ) {
+    const a = q[k], b = q[k + 1];
+    if (Math.hypot(b.x - a.x, b.y - a.y) < TURN_JOG) q.splice(k, 2, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    else k++;
+  }
+  q = q.filter((p, k) => k === 0 || Math.hypot(p.x - q[k - 1].x, p.y - q[k - 1].y) > 0.01);
+  // ② 모서리 깎기
+  const out = [q[0]];
+  for (let k = 1; k < q.length; k++) {
+    const b = q[k];
+    if (k === q.length - 1) { out.push(b); break; }
+    const a = q[k - 1], c = q[k + 1];
+    const l1 = Math.hypot(b.x - a.x, b.y - a.y), l2 = Math.hypot(c.x - b.x, c.y - b.y);
+    const cos = ((b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y)) / (l1 * l2 || 1);
+    const r = Math.min(TURN_RAD, l1 / 2, l2 / 2);
+    if (cos > 0.999 || cos < -0.95 || r < 0.5) { out.push(b); continue; }
+    const ux = (b.x - a.x) / l1, uy = (b.y - a.y) / l1, vx = (c.x - b.x) / l2, vy = (c.y - b.y) / l2;
+    const x0 = b.x - ux * r, y0 = b.y - uy * r, x2 = b.x + vx * r, y2 = b.y + vy * r;
+    const N = 10;
+    for (let t = 0; t <= N; t++) {
+      const u = t / N, w = 1 - u;
+      out.push({ x: w * w * x0 + 2 * w * u * b.x + u * u * x2, y: w * w * y0 + 2 * w * u * b.y + u * u * y2 });
+    }
+  }
+  const cum = [0];
+  for (let k = 1; k < out.length; k++) cum.push(cum[k - 1] + Math.hypot(out[k].x - out[k - 1].x, out[k].y - out[k - 1].y));
+  return { p: out, cum, len: cum[cum.length - 1] };
+}
+function crView(cr) {
+  const pts = cr.pts;
+  if (!pts) {   // 협동 손님: 길을 모름 → 방향만 시간에 따라 부드럽게 돌림
+    if (cr.dang === undefined) cr.dang = cr.ang;
+    const dt = Math.max(0, Math.min(0.1, time - (cr.vt || time))); cr.vt = time;
+    let d = cr.ang - cr.dang; d = Math.atan2(Math.sin(d), Math.cos(d));
+    cr.dang += d * Math.min(1, dt * 14 * speed);
+    return { x: cr.x, y: cr.y, ang: cr.dang };
+  }
+  if (cr._vp !== pts) {   // 새 길: 출발점부터 실제 길 길이를 재고, 다듬은 길을 만들어 둠
+    const real = [{ x: cr.x, y: cr.y }, ...pts.slice(Math.min(cr.i, pts.length))];
+    const cum = [0];
+    for (let k = 1; k < real.length; k++) cum.push(cum[k - 1] + Math.hypot(real[k].x - real[k - 1].x, real[k].y - real[k - 1].y));
+    cr._vp = pts; cr._vi = Math.min(cr.i, pts.length); cr._vr = { p: real, cum, len: cum[cum.length - 1] }; cr._vs = smoothPath(real);
+  }
+  const R = cr._vr, S = cr._vs;
+  if (R.len < 0.5 || S.len < 0.5) return { x: cr.x, y: cr.y, ang: cr.ang };
+  // 실제 길에서 간 거리 (실제 길의 k번째 점 = pts[_vi + k - 1])
+  const k = Math.max(1, Math.min(R.p.length - 1, cr.i - cr._vi + 1));
+  const prev = R.p[k - 1];
+  const sr = Math.min(R.len, R.cum[k - 1] + Math.hypot(cr.x - prev.x, cr.y - prev.y));
+  const sd = sr / R.len * S.len;
+  let j = 1;
+  while (j < S.p.length - 1 && S.cum[j] < sd) j++;
+  const a = S.p[j - 1], b = S.p[j], seg = S.cum[j] - S.cum[j - 1];
+  const t = seg > 0 ? Math.max(0, Math.min(1, (sd - S.cum[j - 1]) / seg)) : 1;
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, ang: seg > 0 ? Math.atan2(b.y - a.y, b.x - a.x) : cr.ang };
+}
 function crPose(cr) {
-  const ux = Math.cos(cr.ang), uy = Math.sin(cr.ang), vertical = Math.abs(uy) > Math.abs(ux);
+  const ux = Math.cos(cr.ang), uy = Math.sin(cr.ang);
+  // 모서리를 도는 동안 옆모습 ↔ 위 모습이 45° 근처에서 깜빡이지 않게, 확실히 돌았을 때만 바꿈 (약 60°)
+  if (cr.vert === undefined) cr.vert = Math.abs(uy) > Math.abs(ux);
+  else if (cr.vert && Math.abs(ux) > Math.abs(uy) * 1.7) cr.vert = false;
+  else if (!cr.vert && Math.abs(uy) > Math.abs(ux) * 1.7) cr.vert = true;
+  const vertical = cr.vert;
   const sv = uy < 0 ? -1 : 1;
   if (!vertical) cr.face = ux >= 0 ? 1 : -1;
   else if (!cr.face) cr.face = cr.x <= HOLE.x ? 1 : -1;
@@ -3680,11 +3909,20 @@ function drawPlay() {
     // 가지러 갈 때: 머리가 이동 방향을 바라봄
     // 굴려 올 때: 진짜 쇠똥구리처럼 거꾸로(뒷걸음) 물구나무 서서 뒷다리로 음식을 밂
     const fr = Math.floor(cr.walk * 8) % 2;
+    // 꺾을 때 자연스럽게: 그리는 동안만 모서리를 깎은 위치·방향을 씀 (끝에서 되돌림)
+    const view = crView(cr), realX = cr.x, realY = cr.y, realAng = cr.ang;
+    cr.ang = view.ang;
     const pose = crPose(cr), sv = pose.sv, face = pose.face, flip = face < 0;
     const vertical = !pose.side;   // 위에서 본 모습으로 그리는 건 위로 올라갈 때뿐
     // 차선: 진행 방향의 오른쪽으로 살짝 비켜 그려서, 마주 오는 쇠똥구리와 겹치지 않고 지나감
-    const [lx, ly] = laneOffset(cr, BP);
-    cr.x += lx; cr.y += ly;
+    //  꺾을 때 차선이 한 번에 반대편으로 튀지 않게 시간에 따라 부드럽게 옮김
+    let [lx, ly] = laneOffset(cr, BP);
+    if (cr.lx !== undefined) {
+      const k = Math.min(1, Math.max(0, time - (cr.lt || time)) * 12 * speed);
+      lx = cr.lx + (lx - cr.lx) * k; ly = cr.ly + (ly - cr.ly) * k;
+    }
+    cr.lx = lx; cr.ly = ly; cr.lt = time;
+    cr.x = view.x + lx; cr.y = view.y + ly;
     ctx.fillStyle = 'rgba(40,25,10,.25)';
     if (cr.state === 'go') {
       if (vertical) {
@@ -3717,7 +3955,7 @@ function drawPlay() {
       }
       if (cr.item && Math.floor(time * 8) % 2) pxStar(cr.x + r, cr.y - r, 1, '#fff6a0');   // 아이템 든 음식은 반짝
     }
-    cr.x -= lx; cr.y -= ly;
+    cr.x = realX; cr.y = realY; cr.ang = realAng;
   }
   for (const p of g.particles) {
     ctx.globalAlpha = Math.min(1, p.life * 2);
