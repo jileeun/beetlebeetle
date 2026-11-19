@@ -73,13 +73,11 @@ window.BALANCE = {
   //   ice       : 얼음 음식 비율 (전체 음식 대비)
   //   giftAt    : 🎁을 숨길 위치 (먹히는 순서의 % 지점), 개수만큼
   gimmickRules: [
-    //  13~28(3장 열쇠, 4장 얼음)은 stages 행에서 직접 정함 — 아래 규칙은 29번 이후(아직 예전 방식)에만 적용
+    //  13~36(3장 열쇠, 4장 얼음, 5장 잠긴 줄)은 stages 행에서 직접 정함 — 아래 규칙은 37번 이후(아직 예전 방식)에만 적용
     //  (2026-11-18 4장 적용: ⛓ 첫 등장을 22 → 29(5장 첫 판)로 옮기고, 23~28 에 걸리던 예전 규칙을 뺌)
-    { when: 'n > 28 && n % 3 === 0 && n % 10 !== 1', set: { ice: 0.04 } },           // 보통에도 가끔
-    { when: 'n === 29', set: { lockCols: 1, keyAt: [0.2] } },                        // ⛓ 첫 등장 (5장)
-    { when: 'n > 29 && n % 4 === 2', set: { lockCols: 1 } },
-    { when: 'n === 30', set: { lockSlots: 1, lockCols: 1, ice: 0.06, keyAt: [0.2, 0.45], giftAt: [0.6] } },  // 🔥
-    { when: 'n === 35', set: { lockCols: 1, ice: 0.1, keyAt: [0.3] } },              // ⚠
+    //  (2026-11-19 5장 적용: 29~36 에 걸리던 예전 규칙(29 ⛓, 30 🔥, 35 ⚠, 3의 배수 🧊, 4k+2 ⛓)을 뺌)
+    { when: 'n > 36 && n % 3 === 0 && n % 10 !== 1', set: { ice: 0.04 } },           // 보통에도 가끔
+    { when: 'n > 36 && n % 4 === 2', set: { lockCols: 1 } },
     { when: 'n === 38', set: { giftAt: [0.5] } },
     { when: 'n === 40', set: { lockSlots: 2, ice: 0.08, keyAt: [0.2, 0.4], giftAt: [0.5] } },              // 🔥
     { when: 'n === 45', set: { lockSlots: 1, lockCols: 1, ice: 0.08, keyAt: [0.25, 0.45] } },             // ⚠
@@ -283,11 +281,61 @@ window.BALANCE = {
           title: '⚠ 4장 시험', intro: '얼음을 녹일 순서를 생각해요!', reward: { bomb: 1 },
           hint: '얼음 옆 색을 먼저, 숫자가 큰 쇠똥구리는 길이 열린 뒤에. 💣 폭탄은 얼음째 날려요.',
           qa: { engine: { randomFail: [0.4, 1], greedyFail: [0.1, 1], fullFail: [0, 0], iceFail: [0, 0] } } },
-    29: { seed: 1, jitter: 0.12, link: 0.25 },         // ⛓ 첫 등장 (22 → 29, 2026-11-18): 순서 뒤섞기·사슬 완화 — 엔진 random·greedy 0%
-    30: { seed: 2 },                                    // 🔥 🔑×2 ⛓ 🧊 🎁
-    31: { seed: 3 },  33: { seed: 1 },
-    35: { seed: 12 },                                   // ⚠ ⛓ 🧊
-    36: { seed: 34 }, 38: { seed: 1 },  39: { seed: 1 },
+    // ===== 5장: 잠긴 줄 ⛓ (29~36) — "열린 두 줄로 열쇠까지" =====
+    //  2026-11-19: 그림을 보물찾기·바다 그림 8개로 새로 그림 (index.html REPLACE_ARTS 28~35) → seed 를 새 그림 기준으로 잼
+    //  오른쪽 대기열 줄이 ⛓ 잠긴 채 시작 → 고를 수 있는 줄이 2개뿐. 그림 속 🔑을 먹으면 풀림 (잠긴 칸이 있으면 칸 먼저, 줄은 그다음 열쇠)
+    //   생성기는 잠긴 동안 나올 쇠똥구리를 열린 두 줄에만 넣으므로, 잠긴 줄에는 열쇠를 먹은 뒤의 쇠똥구리만 있음
+    //  흐름: 29 소개 → 30 깊은 열쇠(두 줄로 길 내기) → 31 쉬어 가기 🎁 → 32 얼음 뒤의 열쇠(4장과 조합)
+    //        → 33 잠긴 칸 + 잠긴 줄(열쇠 2개) → 34 쉬어 가기 🎁 + 사슬 → 35 칸 3개로 연습 → 36 시험 (보상 ✂)
+    //  qa.engine 전략: key = full + 🔑까지 길을 내는 색 먼저 (잠긴 줄은 원래 못 고름) / ice: 얼음이 있는 판
+    //  ※ tier·ants·jitterSpan 을 행에 직접 적음 (30·35 가 pattern 의 보스·어려움으로 바뀌지 않게)
+    29: { seed: 8, tier: 'normal', slots: 5, link: 0, jitter: 0.05, jitterSpan: 1, ants: 18,
+          gimmicks: { lockCols: 1, keyAt: [0.15] },
+          lesson: '잠긴 줄 소개: 오른쪽 줄이 잠겨 두 줄로만 시작, 얕은 🔑을 먹으면 풀림. 막히지 않는 판',
+          hint: '그림 속 🔑을 먹으면 잠긴 줄이 풀려요. 열린 두 줄로 열쇠 쪽 색을 보내요.',
+          qa: { engine: { randomFail: [0, 0.35], greedyFail: [0, 0], fullFail: [0, 0], keyFail: [0, 0] } } },
+    30: { seed: 1, tier: 'normal', slots: 4, link: 0, jitter: 0.05, jitterSpan: 1, ants: 18,
+          gimmicks: { lockCols: 1, keyAt: [0.3] }, gen: { keyDeep: 0.6 },
+          lesson: '깊은 열쇠: 🔑이 안쪽에 — 열린 두 줄에서 열쇠까지 길을 내는 색부터',
+          title: '💡 두 줄로 열쇠까지', intro: '열린 두 줄로 열쇠까지 길을 내요',
+          hint: '열쇠까지 가는 길을 막은 색을 먼저 보내요. 줄이 풀리면 고를 쇠똥구리가 늘어나요.',
+          qa: { engine: { randomFail: [0, 0.75], greedyFail: [0, 0.25], fullFail: [0, 0], keyFail: [0, 0] } } },
+    31: { seed: 1, tier: 'easy', slots: 5, link: 0, jitter: 0.05, jitterSpan: 1, ants: 19,
+          gimmicks: { lockCols: 1, keyAt: [0.2], giftAt: [0.5] },
+          lesson: '쉬어 가기: 칸 5개로 넉넉하게, 잠긴 줄을 풀고 🎁 선물까지',
+          title: '🎁 앵무새의 선물', intro: '열쇠와 선물을 모두 챙겨요',
+          hint: '열쇠 쪽 색을 먼저 보내면 줄이 빨리 풀려요.',
+          qa: { engine: { randomFail: [0, 0.35], greedyFail: [0, 0.1], fullFail: [0, 0], keyFail: [0, 0] } } },
+    32: { seed: 5, tier: 'normal', slots: 4, link: 0, jitter: 0.05, jitterSpan: 1, ants: 19,
+          gimmicks: { lockCols: 1, keyAt: [0.3] }, gen: { iceGate: 3, iceGateMin: 12, keyDeep: 0.5 },   // 가는 그림(등대)이라 길목 점수 하한 30 → 12
+          lesson: '얼음 뒤의 열쇠(4장과 조합): 🔑까지 길목 얼음 — 두 줄로 얼음을 녹여 열쇠까지',
+          title: '💡 얼음 너머 열쇠', intro: '얼음을 녹여야 열쇠에 닿아요',
+          hint: '열쇠 쪽 얼음 옆 색을 먼저 보내요. 얼음이 깨지면 열쇠까지 길이 나요.',
+          qa: { engine: { randomFail: [0, 0.75], greedyFail: [0, 0.25], fullFail: [0, 0], iceFail: [0, 0] } } },
+    33: { seed: 8, tier: 'normal', slots: 4, link: 0, jitter: 0.05, jitterSpan: 1, ants: 20,
+          gimmicks: { lockSlots: 1, lockCols: 1, keyAt: [0.2, 0.45] }, gen: { keyDeep: 0.5 },
+          lesson: '잠긴 칸 + 잠긴 줄(3장과 조합): 칸 3개·줄 2개로 시작, 첫 🔑은 칸, 둘째 🔑은 줄을 엶',
+          title: '💡 열쇠가 2개!', intro: '첫 열쇠는 칸, 둘째 열쇠는 줄을 열어요',
+          hint: '칸도 줄도 좁을 땐 열쇠 쪽 색과 바로 일을 끝낼 쇠똥구리만 넣어요.',
+          qa: { engine: { randomFail: [0, 0.9], greedyFail: [0, 0.5], fullFail: [0, 0], keyFail: [0, 0] } } },
+    34: { seed: 1, tier: 'easy', slots: 5, link: 0.3, jitter: 0.05, jitterSpan: 1, ants: 19,
+          gimmicks: { lockCols: 1, keyAt: [0.25], giftAt: [0.6] },
+          lesson: '쉬어 가기: 사슬(2장)과 잠긴 줄이 함께 있지만 칸 5개로 여유 있게 + 🎁',
+          hint: '사슬은 빈 칸이 2개 필요해요. 열쇠를 먹으면 셋째 줄이 풀려요.',
+          qa: { engine: { randomFail: [0, 0.35], greedyFail: [0, 0.1], fullFail: [0, 0], keyFail: [0, 0] } } },
+    35: { seed: 4, tier: 'normal', slots: 3, link: 0, jitter: 0.05, jitterSpan: 1, ants: 18,
+          gimmicks: { lockCols: 1, keyAt: [0.3] }, gen: { keyDeep: 0.5, busy: 2, big: 3, trap: 0.6, trapSpan: 2 },
+          lesson: '칸 3개로 연습(시험 전): 칸도 줄도 좁아 숫자가 큰 쇠똥구리를 넣으면 막힘',
+          title: '💡 칸 3개, 줄 2개!', intro: '좁을수록 열쇠부터',
+          hint: '칸이 3개뿐이에요. 숫자가 큰 쇠똥구리는 줄이 풀리고 길이 열린 뒤에 넣어요.',
+          qa: { engine: { randomFail: [0.2, 1], greedyFail: [0, 0.75], fullFail: [0, 0], keyFail: [0, 0] } } },
+    36: { seed: 37, tier: 'hard', slots: 4, link: 0, jitter: 0.05, jitterSpan: 1, ants: 22,
+          gimmicks: { lockSlots: 1, lockCols: 1, keyAt: [0.2, 0.45] }, gen: { iceGate: 2, iceGateMin: 15, keyDeep: 0.5, busy: 3, big: 3, trap: 0.8, trapSpan: 3 },
+          lesson: '5장 시험: 잠긴 칸 + 잠긴 줄 + 길목 얼음 + 숫자 보기(1장)',
+          title: '⚠ 5장 시험', intro: '열쇠 2개로 칸과 줄을 열어요!', reward: { unchain: 1 },
+          hint: '열쇠 쪽 색(얼음 옆 색)을 먼저, 숫자가 큰 쇠똥구리는 칸과 줄이 열린 뒤에.',
+          qa: { engine: { randomFail: [0.4, 1], greedyFail: [0.1, 1], fullFail: [0, 0], iceFail: [0, 0] } } },
+    38: { seed: 1 },  39: { seed: 1 },
     40: { seed: 1 },                                    // 🔥 🔑×2 🧊 🎁
     41: { seed: 4 },  42: { seed: 13 }, 43: { seed: 1 }, 44: { seed: 1 },
     45: { seed: 4 },                                    // ⚠ 🔑×2 ⛓ 🧊
