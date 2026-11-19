@@ -94,7 +94,7 @@ const TRACK_M = -3;         // 쇠똥구리 길: 그림판 가장자리에서 �
 const HOLE_DETOUR = 46;     // 가운데 집의 쇠똥구리는 굴을 비켜서 올라감
 
 const slotCenter = k => ({ x: SLOT.x0 + k * (SLOT.w + SLOT.gap) + SLOT.w / 2, y: SLOT.y + SLOT.h / 2 });
-const homePos = k => ({ x: slotCenter(k).x, y: SLOT.y - 12 });
+const homePos = k => ({ x: slotCenter(k).x, y: SLOT.y + SLOT.h - 12 });   // 일터 굴 입구 (index.html과 같게)
 
 const cellCenter = (r, c) => [game.gx + c * game.cs + game.cs / 2, game.gy + r * game.cs + game.cs / 2];
 
@@ -152,7 +152,9 @@ function startPoints(geo, sx, sy, hs = 0) {
   let dx = sx;
   if (Math.abs(sx - HOLE.x) < HOLE_DETOUR) dx = HOLE.x + (hs || (sx >= HOLE.x ? 1 : -1)) * HOLE_DETOUR;
   const T = geo.T, px = Math.max(T.x0, Math.min(T.x1, dx));
-  return dx !== sx ? [{ x: dx, y: sy }, { x: px, y: T.y1 }] : [{ x: px, y: T.y1 }];
+  // 굴을 비킬 때는 일터 위로 먼저 나온 뒤 옆으로 (굴 높이에서 꺾으면 옆 일터 굴을 스침)
+  const up = SLOT.y - 6;
+  return dx !== sx ? [{ x: sx, y: up }, { x: dx, y: up }, { x: px, y: T.y1 }] : [{ x: px, y: T.y1 }];
 }
 // 후보 경로의 길이 (집 → 길 → 들어가는 지점 → 빈 길로 꺾어서 → 음식)
 function candEntry(geo, info, k, cand) {
@@ -164,7 +166,7 @@ function candEntry(geo, info, k, cand) {
 function pathCost(geo, info, sx, sy, k, cand) {
   const sp = startPoints(geo, sx, sy), P1 = sp[sp.length - 1];
   const { E, first } = candEntry(geo, info, k, cand);
-  return Math.abs(sx - sp[0].x) + Math.abs(sy - P1.y) + trackDist(geo.T, P1, E) +
+  return Math.abs(sx - P1.x) + Math.abs(sy - P1.y) + trackDist(geo.T, P1, E) +
     Math.hypot(E.x - first.x, E.y - first.y) + cand.steps * geo.cs;
 }
 // ---- 그림 안에서 걷는 길: "꺾임이 가장 적은 길" 우선, 꺾임 수가 같으면 가장 짧은 길 ----
@@ -192,7 +194,7 @@ function approach(geo, sx, sy, E, s, half) {
     let d;
     if (force) { const t = ((trackParam(T, E.x, E.y) - trackParam(T, P1.x, P1.y)) % P + P) % P; d = force > 0 ? t : (P - t) % P; }
     else d = trackDist(T, P1, E);
-    d += Math.abs(sx - sp[0].x) + Math.abs(sy - P1.y);
+    d += Math.abs(sx - P1.x) + Math.abs(sy - P1.y);
     // 음식 반대쪽 절반의 입구(변이 위·아래·옆 어디든)는 다른 길이 없을 때만
     // (예전에는 옆 변만 막아서, 아래 변 맨 끝 칸으로 들어가 그림 안을 가로지르는 길이 1사분면 음식도 왼쪽으로 돌게 했음)
     if (half > 0 ? E.x < (T.x0 + T.x1) / 2 : E.x >= (T.x0 + T.x1) / 2) d += OPP_COST;

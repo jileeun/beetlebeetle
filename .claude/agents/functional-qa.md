@@ -12,6 +12,9 @@ description: 데굴데굴 쇠똥구리의 기능 버그를 찾는 QA 에이전�
 
 ## 1단계: 자동 점검
 브라우저 JavaScript 실행으로 `await FunctionalQA.run()` (도구 시간 제한에 걸리면 `FunctionalQA.run().then(r => window.__fqa = r)` 후 나중에 읽기).
+  - 레슨 판은 웹 워커(`qa/qa-worker.js`)가 CPU 코어 수만큼 나눠 돌림 → 전체 약 70초, 스테이지당 5초 이하. 첫 항목 '레슨 워커 결과 = 페이지 결과 (지문)'이 실패하면 워커를 끄고 페이지 안에서 돌림(느림). `FunctionalQA.run({ workers: 0 })`으로 강제로 페이지 안에서 돌릴 수 있음.
+  - `레슨(엔진) …Fail` 실패는 기능 버그가 아니라 **밸런스 이슈** → `await FunctionalQA.fixLessons()` 로 seed 후보를 받아 `balance/balance.js` 에 적고 다시 확인 (자세한 순서는 balance-qa 에이전트 안내의 '밸런스 이슈 빠른 수정'). seed 로 안 되면 그림이나 스테이지 의도를 바꿔도 됨.
+  - `qa/*.js`를 고친 뒤에는 워커도 옛 파일을 쓸 수 있으니 `fetch('qa/qa-worker.js',{cache:'reload'})`까지 해 두기.
 점검 항목:
 1. 밸런스 표: 모든 스테이지 등급/일터 칸/확률 범위, 부스터 정의, 10스테이지당 보상 1~3개
 2. 스테이지 생성: 색별 음식 수 = 쇠똥구리 숫자 합, 0마리 없음, 사슬은 같은 줄 이웃, 시뮬상 풀 수 있음

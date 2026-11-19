@@ -1740,7 +1740,8 @@ const HOLE_DETOUR = 46;     // 가운데 집의 쇠똥구리는 굴을 비켜서
 const colX = c => Q.x0 + c * (Q.colW + Q.gap) + Q.colW / 2;
 const qPosY = i => Q.y + 10 + i * Q.rowH + Q.rowH / 2;
 const slotCenter = k => ({ x: SLOT.x0 + k * (SLOT.w + SLOT.gap) + SLOT.w / 2, y: SLOT.y + SLOT.h / 2 });
-const homePos = k => ({ x: slotCenter(k).x, y: SLOT.y - 12 });
+// 쇠똥구리 집 = 일터 칸 자체 (쇠똥구리 색 굴). 일꾼은 굴 입구에서 바로 출발
+const homePos = k => ({ x: slotCenter(k).x, y: SLOT.y + SLOT.h - 12 });
 const PCOL = ['#4a82e8', '#ef4f5a'];   // 1P 파랑, 2P 빨강
 
 // ================== 도트 스프라이트 ==================
@@ -2905,7 +2906,9 @@ function startPoints(geo, sx, sy, hs = 0) {
   let dx = sx;
   if (Math.abs(sx - HOLE.x) < HOLE_DETOUR) dx = HOLE.x + (hs || (sx >= HOLE.x ? 1 : -1)) * HOLE_DETOUR;
   const T = geo.T, px = Math.max(T.x0, Math.min(T.x1, dx));
-  return dx !== sx ? [{ x: dx, y: sy }, { x: px, y: T.y1 }] : [{ x: px, y: T.y1 }];
+  // 굴을 비킬 때는 일터 위로 먼저 나온 뒤 옆으로 (굴 높이에서 꺾으면 옆 일터 굴을 스침)
+  const up = SLOT.y - 6;
+  return dx !== sx ? [{ x: sx, y: up }, { x: dx, y: up }, { x: px, y: T.y1 }] : [{ x: px, y: T.y1 }];
 }
 // 후보 경로의 길이 (집 → 길 → 들어가는 지점 → 빈 길로 꺾어서 → 음식)
 function candEntry(geo, info, k, cand) {
@@ -2917,7 +2920,7 @@ function candEntry(geo, info, k, cand) {
 function pathCost(geo, info, sx, sy, k, cand) {
   const sp = startPoints(geo, sx, sy), P1 = sp[sp.length - 1];
   const { E, first } = candEntry(geo, info, k, cand);
-  return Math.abs(sx - sp[0].x) + Math.abs(sy - P1.y) + trackDist(geo.T, P1, E) +
+  return Math.abs(sx - P1.x) + Math.abs(sy - P1.y) + trackDist(geo.T, P1, E) +
     Math.hypot(E.x - first.x, E.y - first.y) + cand.steps * geo.cs;
 }
 // ---- 그림 안에서 걷는 길: "꺾임이 가장 적은 길" 우선, 꺾임 수가 같으면 가장 짧은 길 ----
@@ -2945,7 +2948,7 @@ function approach(geo, sx, sy, E, s, half) {
     let d;
     if (force) { const t = ((trackParam(T, E.x, E.y) - trackParam(T, P1.x, P1.y)) % P + P) % P; d = force > 0 ? t : (P - t) % P; }
     else d = trackDist(T, P1, E);
-    d += Math.abs(sx - sp[0].x) + Math.abs(sy - P1.y);
+    d += Math.abs(sx - P1.x) + Math.abs(sy - P1.y);
     // 음식 반대쪽 절반의 입구(변이 위·아래·옆 어디든)는 다른 길이 없을 때만
     // (예전에는 옆 변만 막아서, 아래 변 맨 끝 칸으로 들어가 그림 안을 가로지르는 길이 1사분면 음식도 왼쪽으로 돌게 했음)
     if (half > 0 ? E.x < (T.x0 + T.x1) / 2 : E.x >= (T.x0 + T.x1) / 2) d += OPP_COST;
@@ -2965,28 +2968,38 @@ function borderSides(r, c, R, C) {
 // sources: [{ k, dir, d }] 에서 출발해 빈칸(open(n))만 밟고 가는 최소 비용. dist/par 는 칸*4+방향 색인
 function turnSearch(R, C, cs, open, sources) {
   const N = R * C, dist = new Float64Array(N * 4).fill(Infinity), par = new Int32Array(N * 4).fill(-1);
-  const heap = [];   // [비용, 상태] 최소 힙
-  const push = (d, s) => {
-    let i = heap.length; heap.push([d, s]);
-    while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; }
-  };
-  const pop = () => {
-    const top = heap[0], last = heap.pop();
-    if (heap.length) {
-      heap[0] = last;
-      for (let i = 0; ;) {
-        const l = 2 * i + 1, r = l + 1; let m = i;
-        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
-        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
-        if (m === i) break;
-        [heap[m], heap[i]] = [heap[i], heap[m]]; i = m;
-      }
+  const ok = new Uint8Array(N);
+  for (let n = 0; n < N; n++) ok[n] = open(n) ? 1 : 0;   // 빈칸 여부는 탐색 중에 바뀌지 않으므로 한 번만 확인
+  const tc = turnCost(cs);
+  // [비용, 상태] 최소 힙 — 비용(hd)·상태(hs)를 나란히 둔 배열 (예전 [d, s] 배열 힙과 비교·교환 순서가 똑같아 같은 길이 나옴)
+  const hd = [], hs = [];
+  const push = (d, st) => {
+    let i = hd.length; hd.push(d); hs.push(st);
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (hd[p] <= hd[i]) break;
+      const td = hd[p]; hd[p] = hd[i]; hd[i] = td;
+      const ts = hs[p]; hs[p] = hs[i]; hs[i] = ts;
+      i = p;
     }
-    return top;
   };
   for (const s of sources) { const st = s.k * 4 + s.dir; if (s.d < dist[st]) { dist[st] = s.d; push(s.d, st); } }
-  while (heap.length) {
-    const [d, st] = pop();
+  while (hd.length) {
+    // pop
+    const d = hd[0], st = hs[0], ld = hd.pop(), ls = hs.pop();
+    const L = hd.length;
+    if (L) {
+      hd[0] = ld; hs[0] = ls;
+      for (let i = 0; ;) {
+        const l = 2 * i + 1, r = l + 1; let m = i;
+        if (l < L && hd[l] < hd[m]) m = l;
+        if (r < L && hd[r] < hd[m]) m = r;
+        if (m === i) break;
+        const td = hd[m]; hd[m] = hd[i]; hd[i] = td;
+        const ts = hs[m]; hs[m] = hs[i]; hs[i] = ts;
+        i = m;
+      }
+    }
     if (d > dist[st]) continue;
     const k = st >> 2, dir = st & 3, r = Math.floor(k / C), c = k % C;
     for (let e = 0; e < 4; e++) {
@@ -2994,8 +3007,8 @@ function turnSearch(R, C, cs, open, sources) {
       const nr = r + D4[e][0], nc = c + D4[e][1];
       if (nr < 0 || nc < 0 || nr >= R || nc >= C) continue;
       const n = nr * C + nc;
-      if (!open(n)) continue;
-      const nd = d + cs + (e === dir ? 0 : turnCost(cs)), ns = n * 4 + e;
+      if (!ok[n]) continue;
+      const nd = d + cs + (e === dir ? 0 : tc), ns = n * 4 + e;
       if (nd < dist[ns]) { dist[ns] = nd; par[ns] = st; push(nd, ns); }
     }
   }
@@ -3096,6 +3109,13 @@ function trackToHole(E) {
   const a = route(1), b = route(-1);
   return a.len <= b.len ? a : b;
 }
+// 출구 E에서 굴까지 길이 (스테이지마다 출구 위치가 고정이라 한 번 잰 값을 기억해 둠)
+function holeLen(E) {
+  const m = game.holeLens || (game.holeLens = new Map()), key = E.x + ',' + E.y;
+  let v = m.get(key);
+  if (v === undefined) { v = trackToHole(E).len; m.set(key, v); }
+  return v;
+}
 function backPath(cr) {
   const g = game, R = g.R, C = g.C, N = R * C, start = cr.r * C + cr.c;
   // 집은 자리에서 빈칸을 따라 탐색 (갈 때와 같은 규칙: 꺾임 한 번 = TURN_CELLS 칸 → 웬만하면 테두리까지 곧게 나감)
@@ -3109,9 +3129,9 @@ function backPath(cr) {
       for (let dir = 0; dir < 4; dir++) {
         const d = f.dist[k * 4 + dir];
         if (d === Infinity) continue;
-        if (!E) { E = geoEntry(g, r, c, s); p = geoCenter(g, r, c); tr = trackToHole(E); }
-        const len = d + (dir === (SIDE_IN[s] ^ 1) ? 0 : turnCost(g.cs)) + Math.hypot(E.x - p.x, E.y - p.y) + tr.len;
-        if (!best || len < best.len) best = { st: k * 4 + dir, tr, len };
+        if (!E) { E = geoEntry(g, r, c, s); p = geoCenter(g, r, c); tr = holeLen(E); }
+        const len = d + (dir === (SIDE_IN[s] ^ 1) ? 0 : turnCost(g.cs)) + Math.hypot(E.x - p.x, E.y - p.y) + tr;
+        if (!best || len < best.len) best = { st: k * 4 + dir, E, len };
       }
     }
   }
@@ -3119,7 +3139,7 @@ function backPath(cr) {
   const chain = [];
   for (let st = best.st; st >= 0 && (st >> 2) !== start; st = f.par[st]) chain.push(geoCenter(g, Math.floor((st >> 2) / C), (st >> 2) % C));
   chain.reverse();
-  return simplify([{ x: cr.x, y: cr.y }, ...chain, ...best.tr.pts]);
+  return simplify([{ x: cr.x, y: cr.y }, ...chain, ...trackToHole(best.E).pts]);
 }
 
 // 가져올 음식 고르기: side가 -1이면 그림 왼쪽 절반, 1이면 오른쪽 절반에서 가장 가까운 음식.
@@ -3221,7 +3241,7 @@ function tryPick(c, i) {
   }
   members.sort((p, q) => p.col - q.col).forEach((m, k) => {
     game.queues[m.col].shift();
-    m.inSlot = true; m.slot = free[k]; m.cool = 0.2; m.owner = game.turn;
+    m.inSlot = true; m.slot = free[k]; m.cool = 0.2; m.owner = game.turn; m.housed = false;
     game.slots[free[k]] = m;
   });
   if (mode === 'coop') game.turn ^= 1;   // 협동: 고를 때마다 차례가 바뀜
@@ -3543,16 +3563,31 @@ function drawPlayStatic() {
     ctx.fillStyle = PAD.front; ctx.fillRect(x + 4, Q.y + 8, Q.colW - 8, Q.rowH - 2);
   }
 }
-// 쇠똥구리 집 (일터마다 하나, 쇠똥구리 색으로 물듦)
-function drawHome(k, color) {
-  const { x, y } = homePos(k);
-  const base = color ? (color === 'D' ? '#3e3a4c' : COLORS[color]) : '#b89870';
+// 일터 칸 전체가 쇠똥구리 색의 굴 (둥근 흙더미 + 아래 굴 입구. 숫자는 흙더미 위, 입구에서 일꾼이 나옴)
+const MOUND_HW = [10, 17, 22, 25, 28, 30, 31, 32, 32, 32, 32, 32, 32];   // 4px 줄마다 반너비 (위→아래)
+const HOLE_HW = [4, 7, 8, 9, 9];                                        // 굴 입구 반너비 (위→아래)
+function drawBenchHome(k, color, n, dim) {
+  const cx = Math.round(slotCenter(k).x), bot = SLOT.y + SLOT.h - 4, top = bot - MOUND_HW.length * 4;
+  const base = color === 'D' ? '#3e3a4c' : COLORS[color];
+  ctx.save(); ctx.globalAlpha = dim ? 0.7 : 1;
   ctx.fillStyle = OUTLINE;
-  ctx.fillRect(x - 17, y - 2, 34, 12); ctx.fillRect(x - 13, y - 7, 26, 6); ctx.fillRect(x - 8, y - 10, 16, 4);
-  ctx.fillStyle = shade(base, -0.2); ctx.fillRect(x - 15, y, 30, 8);
-  ctx.fillStyle = base; ctx.fillRect(x - 11, y - 5, 22, 6); ctx.fillRect(x - 6, y - 8, 12, 4);
-  ctx.fillStyle = shade(base, 0.45); ctx.fillRect(x - 8, y - 4, 6, 2);
-  ctx.fillStyle = '#1a100a'; ctx.fillRect(x - 4, y + 1, 8, 7);
+  MOUND_HW.forEach((hw, r) => ctx.fillRect(cx - hw - 2, top + r * 4 - 2, hw * 2 + 4, 6));
+  MOUND_HW.forEach((hw, r) => {
+    const y = top + r * 4;
+    ctx.fillStyle = base; ctx.fillRect(cx - hw, y, hw * 2, 4);
+    ctx.fillStyle = shade(base, -0.22); ctx.fillRect(cx + Math.round(hw * 0.45), y, hw - Math.round(hw * 0.45), 4);   // 오른쪽 그늘
+  });
+  ctx.fillStyle = shade(base, 0.4);   // 왼쪽 위 빛
+  ctx.fillRect(cx - 14, top + 6, 8, 3); ctx.fillRect(cx - 20, top + 10, 4, 6);
+  ctx.fillStyle = shade(base, -0.35);   // 흙 알갱이
+  for (const [dx, dy] of [[-22, 30], [-12, 40], [16, 22], [22, 38], [-26, 44], [8, 14]]) ctx.fillRect(cx + dx, top + dy, 3, 3);
+  // 굴 입구 (아치)
+  const hy = bot - HOLE_HW.length * 4;
+  ctx.fillStyle = OUTLINE; HOLE_HW.forEach((hw, r) => ctx.fillRect(cx - hw - 2, hy + r * 4 - 2, hw * 2 + 4, 6));
+  ctx.fillStyle = '#1a100a'; HOLE_HW.forEach((hw, r) => ctx.fillRect(cx - hw, hy + r * 4, hw * 2, 4));
+  ctx.fillStyle = shade(base, -0.45); ctx.fillRect(cx - 12, bot - 2, 24, 2);   // 입구 앞 파인 흙
+  ctx.restore();
+  text(String(n), cx, SLOT.y + 20, 14, '#ffffff', 'center', OUTLINE);
 }
 
 // ================== 화면: 메뉴 ==================
@@ -3833,7 +3868,6 @@ function drawPlay() {
       ctx.fillStyle = '#ffcf4a'; ctx.fillRect(lx - 2, ly - 2, 4, 8);
       continue;
     }
-    drawHome(k, g.slots[k] && g.slots[k].color);
     if (g.slots[k]) continue;
     const x = SLOT.x0 + k * (SLOT.w + SLOT.gap) + 8, y = SLOT.y + 8, w = SLOT.w - 16, h = SLOT.h - 16;
     ctx.fillStyle = PAD.dash;
@@ -3908,11 +3942,26 @@ function drawPlay() {
     }
     return false;
   };
-  g.slots.forEach(a => {
+  g.slots.forEach((a, k) => {
     if (!a) return;
     const idle = a.total - a.dispatched > 0 && g.state !== 'clear' && !canReach(a.color);
     if (!idle) a.idleAt = null; else if (a.idleAt == null) a.idleAt = time;
     const sleepy = a.idleAt != null && time - a.idleAt > 0.5;
+    const arrived = Math.hypot(a.tx - a.x, a.ty - a.y) <= 4;   // 대기열에서 날아오는 동안은 쇠똥구리, 닿으면 굴
+    if (arrived) {
+      if (!a.housed) {   // 일터에 닿는 순간 집으로 바뀜
+        a.housed = true;
+        burst(a.tx, a.ty, a.color === 'D' ? '#3e3a4c' : COLORS[a.color], 14, 80);
+        beep(660, 0.06, 0.03);
+      }
+      drawBenchHome(k, a.color, a.total - a.dispatched, sleepy);
+      if (sleepy) text('💤', a.tx + 24, SLOT.y + 6 - Math.round(Math.sin(time * 3) * 3), 14, '#ffffff');
+      if (mode === 'coop') {
+        pxBox(a.tx - 34, SLOT.y + 2, 22, 16, PCOL[a.owner], OUTLINE, 2);
+        text(`${a.owner + 1}P`, a.tx - 23, SLOT.y + 10, 10, '#ffffff');
+      }
+      return;
+    }
     const fr = sleepy ? 0 : Math.floor(time * 6) % 2;
     drawSprite('beetle' + fr, a.color, 0, CARD_PX, a.x + shakeOf(a), a.y, sleepy ? 0.6 : 1);
     text(String(a.total - a.dispatched), a.x, a.y + 7, 14, '#ffffff', 'center', OUTLINE);
@@ -3994,6 +4043,10 @@ function drawPlay() {
     }
     cr.x = realX; cr.y = realY; cr.ang = realAng;
   }
+  // 굴 위 숫자는 나가는 일꾼에 가리지 않게 맨 위에 다시 그림
+  g.slots.forEach((a, k) => {
+    if (a && a.housed) text(String(a.total - a.dispatched), Math.round(slotCenter(k).x), SLOT.y + 20, 14, '#ffffff', 'center', OUTLINE);
+  });
   for (const p of g.particles) {
     ctx.globalAlpha = Math.min(1, p.life * 2);
     ctx.fillStyle = p.color; ctx.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);

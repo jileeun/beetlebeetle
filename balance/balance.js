@@ -216,7 +216,9 @@ window.BALANCE = {
           hint: '열쇠와 선물을 가리고 있는 바깥쪽 음식부터 먹어요.',
           qa: { engine: { randomFail: [0, 0.35], greedyFail: [0, 0], fullFail: [0, 0], keyFail: [0, 0] } } },
     //  19번 seed 1 → 3 (2026-11-13): 12번과 같은 이유 (동선 수정 뒤 seed 1 은 full·key 도 63% 막힘)
-    19: { seed: 3, tier: 'normal', slots: 4, link: 0, jitter: 0.05, jitterSpan: 1, ants: 20,
+    //  19번 seed 3 → 15 (2026-11-19): 일터 자체가 굴이 되어 일꾼 출발점이 62px 아래로 내려감 → 이동 타이밍이 바뀌어 seed 3 은 full·key 38% 막힘.
+    //   seed 15: 24판씩 재확인 random 63% / greedy 0% / full 0% / key 0% (예전 기록과 같은 성격)
+    19: { seed: 15, tier: 'normal', slots: 4, link: 0, jitter: 0.05, jitterSpan: 1, ants: 20,
           gimmicks: { lockSlots: 2, keyAt: [0.25, 0.5] }, gen: { keyDeep: 0.6, busy: 3, big: 3, trap: 0.8, trapSpan: 2 },
           lesson: '두 칸으로 시작: 칸 2개뿐이라 한 마리만 막혀도 위험 → 열쇠부터 (시험 연습)',
           title: '💡 칸이 2개뿐!', intro: '열쇠 두 개를 열어 칸을 넓혀요',
@@ -245,7 +247,8 @@ window.BALANCE = {
           title: '💡 길목 얼음', intro: '얼음이 안쪽으로 가는 길을 막고 있어요',
           hint: '얼음이 녹아야 안쪽 음식이 열려요. 얼음 바로 옆 음식 색 쇠똥구리를 먼저 넣어요.',
           qa: { engine: { randomFail: [0.1, 0.65], greedyFail: [0, 0.25], fullFail: [0, 0], iceFail: [0, 0] } } },
-    23: { seed: 1, tier: 'easy', slots: 5, link: 0, jitter: 0.05, jitterSpan: 1, ants: 19, gen: { iceGate: 2 },
+    //  23번 seed 1 → 18 (2026-11-19): 19번과 같은 이유 (seed 1 은 random 38% 로 상한 35% 를 넘음). seed 18: 24판씩 random 25% / 나머지 0%
+    23: { seed: 18, tier: 'easy', slots: 5, link: 0, jitter: 0.05, jitterSpan: 1, ants: 19, gen: { iceGate: 2 },
           gimmicks: { giftAt: [0.5] },
           lesson: '쉬어 가기: 칸 5개로 넉넉하게, 얼음을 녹이며 🎁 선물까지',
           title: '🎁 얼음 속 선물', intro: '얼음을 녹이고 선물까지 가 봐요',

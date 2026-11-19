@@ -258,9 +258,21 @@
       const R = g.R, C = g.C, cost = new Array(R * C).fill(Infinity), par = new Array(R * C).fill(-1), done = new Array(R * C).fill(false);
       const w = k => g.grid[Math.floor(k / C)][k % C] ? (g.ice.has(k) ? 3 : 1) : 0;
       for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (r === 0 || c === 0 || r === R - 1 || c === C - 1) cost[r * C + c] = w(r * C + c);
+      // 예전: 매번 전체 칸을 훑어 (비용, 칸 번호)가 가장 작은 칸을 고름 → O(N²).
+      // 지금: (비용, 칸 번호) 순 최소 힙에서 꺼냄 → 꺼내는 순서가 같아서 결과(par)도 똑같음
+      const hc = [], hk = [];
+      const less = (i, j) => hc[i] < hc[j] || (hc[i] === hc[j] && hk[i] < hk[j]);
+      const swap = (i, j) => { const c0 = hc[i]; hc[i] = hc[j]; hc[j] = c0; const k0 = hk[i]; hk[i] = hk[j]; hk[j] = k0; };
+      const hpush = (cv, k) => { let i = hc.length; hc.push(cv); hk.push(k); while (i > 0) { const q = (i - 1) >> 1; if (!less(i, q)) break; swap(i, q); i = q; } };
+      const hpop = () => {
+        const k = hk[0], lc = hc.pop(), lk = hk.pop(), L = hc.length;
+        if (L) { hc[0] = lc; hk[0] = lk; for (let i = 0; ;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < L && less(l, m)) m = l; if (r < L && less(r, m)) m = r; if (m === i) break; swap(i, m); i = m; } }
+        return k;
+      };
+      for (let k = 0; k < R * C; k++) if (cost[k] < Infinity) hpush(cost[k], k);
       for (;;) {
         let b = -1;
-        for (let k = 0; k < R * C; k++) if (!done[k] && cost[k] < Infinity && (b < 0 || cost[k] < cost[b])) b = k;
+        while (hc.length) { const cv = hc[0], k = hpop(); if (!done[k] && cv === cost[k]) { b = k; break; } }
         if (b < 0) break;
         done[b] = true;
         const r = Math.floor(b / C), c = b % C;
@@ -268,7 +280,7 @@
           const nr = r + dr, nc = c + dc;
           if (nr < 0 || nc < 0 || nr >= R || nc >= C) continue;
           const n = nr * C + nc, v = cost[b] + w(n);
-          if (v < cost[n]) { cost[n] = v; par[n] = b; }
+          if (v < cost[n]) { cost[n] = v; par[n] = b; hpush(v, n); }
         }
       }
       let key = -1;
@@ -373,6 +385,99 @@
     speed = keep.speed; mode = keep.mode;
     return st;
   }
+  // 지문: 판 결과 + 걸음 수 + 25걸음마다 쇠똥구리 위치·남은 음식 해시 (워커 결과가 페이지와 같은지 확인용)
+  function lessonPrint(i, policy, seed) {
+    let h = 0, n = 0;
+    const ou = window.update;
+    window.update = dt => {
+      ou(dt);
+      if (++n % 25) return;
+      for (const c of game.carriers) h = (h * 31 + Math.round(c.x * 10) * 7 + Math.round(c.y * 10)) | 0;
+      h = (h * 31 + game.remaining) | 0;
+    };
+    try { return [lessonRun(i, policy, seed), n, h]; } finally { window.update = ou; }
+  }
+  // ---- 레슨 판을 웹 워커 여러 개로 나눠 돌리기 (qa/qa-worker.js) ----
+  function makePool(size) {
+    const base = new URL('.', location.href).href;
+    const ws = [];
+    for (let k = 0; k < size; k++) ws.push(new Worker(base + 'qa/qa-worker.js'));
+    let seq = 0;
+    const ask = (w, msg) => new Promise((res, rej) => {
+      const id = ++seq;
+      const on = e => {
+        if (!e.data || e.data.id !== id) return;
+        w.removeEventListener('message', on);
+        if (e.data.qa === 'done') res(e.data.out); else rej(new Error(e.data.error));
+      };
+      w.addEventListener('message', on);
+      w.addEventListener('error', ev => rej(new Error('워커 오류: ' + (ev.message || ''))), { once: true });
+      w.postMessage({ ...msg, qa: 'jobs', id, base });
+    });
+    // jobs: [[스테이지, 정책, 시드]] → 같은 순서로 결과. 일이 끝난 워커가 다음 일을 가져감
+    // extra: 모든 일에 붙일 값 (예: { patch: [[18, { seed: 15 }]] }) 또는 일 번호 → 값 함수
+    const run = async (jobs, extra = {}) => {
+      const out = new Array(jobs.length);
+      let next = 0;
+      await Promise.all(ws.map(async w => {
+        while (next < jobs.length) {
+          const j = next++;
+          out[j] = (await ask(w, { jobs: [jobs[j]], ...(typeof extra === 'function' ? extra(j) : extra) }))[0];
+        }
+      }));
+      return out;
+    };
+    return { run, ask: (msg) => ask(ws[0], msg), close: () => ws.forEach(w => w.terminate()), size };
+  }
+  // ---- 밸런스 이슈 빠른 수정: 레슨 목표를 벗어난 스테이지의 seed 를 워커로 다시 찾기 ----
+  //  await FunctionalQA.fixLessons()                 // 레슨 점검을 돌려 실패한 스테이지를 모두 찾아 seed 후보 제안
+  //  await FunctionalQA.fixLessons({ stages: [19] }) // 스테이지 번호(1부터) 지정
+  //  옵션: seeds (후보 seed 목록, 기본 1~40), runs (후보 거르기 판 수, 기본 8 = QA와 같음), confirm (재확인 판 수, 기본 24)
+  //  결과: [{ stage, seed: 지금 seed, now: 지금 실패율, pick: { seed, stat } | null, candidates }] — pick 을 balance.js 에 적으면 됨.
+  //  pick 이 null 이면 seed 만으로는 안 됨 → 그림(그리드)이나 스테이지 의도(qa.engine 목표 구간·gen 손잡이)를 바꾸는 단계로.
+  async function fixLessons(opt = {}) {
+    const t0 = performance.now();
+    const n = opt.runs || 8, nc = opt.confirm || 24;
+    const seeds = opt.seeds || Array.from({ length: 40 }, (_, k) => k + 1);
+    const pool = makePool(opt.workers || Math.min(8, Math.max(1, (navigator.hardwareConcurrency || 4) - 1)));
+    const stat = async (i, seed, runs) => {   // seed 를 바꿔서 정책마다 runs 판 → 실패율
+      const ks = lessonKeys(i).map(k => k.slice(0, -4)), jobs = [];
+      for (const p of ks) for (let s = 0; s < runs; s++) jobs.push([i, p, s * 31 + 7]);
+      const out = await pool.run(jobs, seed == null ? {} : { patch: [[i, { seed }]] });
+      const r = {};
+      for (const p of ks) { let f = 0; out.forEach((st, j) => { if (jobs[j][1] === p && st !== 'clear') f++; }); r[p + 'Fail'] = +(f / runs).toFixed(2); }
+      return r;
+    };
+    const q = i => STAGES[i].qa.engine;
+    const pass = (i, r) => lessonKeys(i).every(k => !q(i)[k] || (r[k] >= q(i)[k][0] - 1e-9 && r[k] <= q(i)[k][1] + 1e-9));
+    const off = (i, r) => lessonKeys(i).reduce((t, k) => t + (q(i)[k] ? Math.abs(r[k] - (q(i)[k][0] + q(i)[k][1]) / 2) : 0), 0);   // 목표 구간 가운데에서 먼 정도
+    const report = [];
+    try {
+      let stages = opt.stages ? opt.stages.map(s => s - 1) : lessonStages();
+      const now = {};
+      for (const i of stages) now[i] = await stat(i, null, n);
+      if (!opt.stages) stages = stages.filter(i => !pass(i, now[i]));   // 지정 안 하면 실패한 스테이지만
+      for (const i of stages) {
+        const cands = [];
+        for (let b = 0; b < seeds.length; b += 8) {   // 8개씩: 판들을 워커에 한꺼번에 나눠 줌
+          const part = seeds.slice(b, b + 8).filter(sd => sd !== STAGES[i].seed);
+          const rs = await Promise.all(part.map(sd => stat(i, sd, n)));
+          part.forEach((sd, k) => { if (pass(i, rs[k])) cands.push({ seed: sd, stat: rs[k] }); });
+          if (cands.length >= (opt.enough || 6)) break;
+        }
+        cands.sort((a, b) => off(i, a.stat) - off(i, b.stat));
+        let pick = null;
+        for (const c of cands.slice(0, 3)) {   // 판 수를 늘려 재확인 (8판에서만 운 좋게 통과한 seed 거르기)
+          const r = await stat(i, c.seed, nc);
+          c.confirm = r;
+          if (pass(i, r)) { pick = { seed: c.seed, stat: r }; break; }
+        }
+        report.push({ stage: i + 1, seed: STAGES[i].seed, now: now[i], target: q(i), pick, candidates: cands });
+      }
+    } finally { pool.close(); }
+    report.ms = Math.round(performance.now() - t0);
+    return report;
+  }
   function lessonStat(i, n = 8, policies = ['random', 'greedy', 'full']) {
     const out = {};
     for (const p of policies) { let f = 0; for (let s = 0; s < n; s++) if (lessonRun(i, p, s * 31 + 7) !== 'clear') f++; out[p + 'Fail'] = +(f / n).toFixed(2); }
@@ -411,11 +516,47 @@
     await step('기믹', testGimmicks);
     await step('보상', testRewards);
     // 레슨은 실행이 수백 번이라 스테이지·정책마다 나눠서 돌림 (한 번에 돌리면 몇 분 동안 페이지가 멈춤)
+    // 워커가 있으면 판들을 CPU 코어 수만큼 나눠 돌림 (결과는 같고 시간만 줄어듦). opt.workers = 0 이면 예전처럼 페이지 안에서
+    let pool = null;
+    const nW = opt.workers != null ? opt.workers : Math.min(8, Math.max(1, (navigator.hardwareConcurrency || 4) - 1));
+    if (opt.lessons !== false && nW > 0 && typeof Worker === 'function' && lessonStages().length) {
+      const t0 = performance.now();
+      try {
+        pool = makePool(nW);
+        // 워커 결과 = 페이지 결과 확인 (첫 레슨 스테이지 한 판을 양쪽에서 돌려 지문 비교)
+        const i0 = lessonStages()[0], p0 = lessonKeys(i0)[0].slice(0, -4);
+        const wp = (await pool.ask({ jobs: [[i0, p0, 7]], print: true }))[0];
+        const pp = lessonPrint(i0, p0, 7);
+        if (!check('레슨 워커 결과 = 페이지 결과 (지문)', JSON.stringify(wp) === JSON.stringify(pp), `워커 ${JSON.stringify(wp)} / 페이지 ${JSON.stringify(pp)}`)) { pool.close(); pool = null; }
+      } catch (e) {
+        errors.push('레슨 워커 준비: ' + (e && e.stack || e));
+        if (pool) pool.close();
+        pool = null;
+      }
+      timings.push(['레슨 워커 준비', Math.round(performance.now() - t0)]);
+    }
     if (opt.lessons !== false) for (const i of lessonStages()) {
-      const r = {};
-      for (const k of lessonKeys(i)) await step(`레슨 ${i + 1} ${k}`, () => Object.assign(r, lessonStat(i, opt.lessonRuns || 8, [k.slice(0, -4)])));
+      const r = {}, n = opt.lessonRuns || 8;
+      if (pool) {
+        const t0 = performance.now();
+        const ks = lessonKeys(i).map(k => k.slice(0, -4)), jobs = [];
+        for (const p of ks) for (let s = 0; s < n; s++) jobs.push([i, p, s * 31 + 7]);
+        try {
+          const out = await pool.run(jobs);
+          for (const p of ks) {
+            let f = 0;
+            out.forEach((st, j) => { if (jobs[j][1] === p && st !== 'clear') f++; });
+            r[p + 'Fail'] = +(f / n).toFixed(2);
+          }
+        } catch (e) { errors.push(`레슨 ${i + 1} (워커): ` + (e && e.stack || e)); check(`레슨 ${i + 1} 워커 예외 없음`, false, e && e.message); }
+        timings.push([`레슨 ${i + 1} (워커 ${pool.size}개)`, Math.round(performance.now() - t0)]);
+        await new Promise(res => setTimeout(res, 0));
+      } else {
+        for (const k of lessonKeys(i)) await step(`레슨 ${i + 1} ${k}`, () => Object.assign(r, lessonStat(i, n, [k.slice(0, -4)])));
+      }
       checkLesson(i, r);
     }
+    if (pool) pool.close();
     // 복구
     for (const k in backup) if (backup[k] != null) store.set(k, backup[k]);
     cleared = keep.cleared; lastStage = keep.lastStage; speed = keep.speed; mode = keep.mode; inventory = keep.inv; saveInventory(); saveProgress();
@@ -424,5 +565,5 @@
     return { total: results.length, passed: results.length - failed.length, failed, errors, timings };
   }
 
-  window.FunctionalQA = { run, countInvariant, borderHits, runEngine, lessonRun, lessonStat, testLessons, results };
+  window.FunctionalQA = { run, countInvariant, borderHits, runEngine, lessonRun, lessonPrint, lessonStat, testLessons, makePool, fixLessons, results };
 })();
